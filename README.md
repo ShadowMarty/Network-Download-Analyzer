@@ -1,14 +1,49 @@
 # Network Download Analyzer (SSL/TLS)
 
-Measures network throughput over encrypted connections and provides actionable guidance for download scheduling.
+A comprehensive network diagnostics tool that measures download throughput over encrypted SSL/TLS connections. Perfect for understanding network performance patterns and optimizing file transfer scheduling across different times of day.
 
-## Quick Start
+## Overview
 
+This project analyzes your network behavior over time by performing repeated SSL/TLS-encrypted downloads and identifying peak/off-peak performance patterns. It generates actionable insights for scheduling large file transfers, backups, and synchronizations to avoid congestion and maximize throughput.
+
+**Key Technical Features:**
+- Encrypted downloads using SSL/TLS (self-signed certificates)
+- Precision timing with `time.perf_counter()` for accuracy
+- Per-hour grouping for peak/off-peak analysis  
+- Comprehensive statistical analysis (mean, median, stdev, min/max)
+- Multi-format reporting (JSON, CSV, text, PNG charts)
+- Flexible test modes from 1 minute to 24 hours
+- Automatic result opening on completion
+
+## Setup
+
+**macOS/Linux:**
 ```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python3 setup.py
+```
+
+**Windows (PowerShell):**
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 python setup.py
 ```
 
-Choose test mode:
+**Windows (Command Prompt):**
+```cmd
+python -m venv venv
+venv\Scripts\activate.bat
+pip install -r requirements.txt
+python setup.py
+```
+
+## Usage
+
+Run the analyzer and choose a test mode:
 - **Quick Test** - 5 downloads, 10s apart (1 minute)
 - **Short Intervals** - 12 downloads, 5min apart (1 hour)  
 - **Standard 24-Hour** - 24 downloads, 1hr apart (24 hours)
@@ -24,9 +59,13 @@ Answers practical questions:
 
 ## How It Works
 
-**Server** (`src/server.py`) - Listens on localhost:8000 with SSL/TLS, serves 20MB test file  
-**Client** (`src/client.py`) - SSL/TLS downloads with precise throughput measurement  
-**Analysis** (`src/analysis.py`) - Computes statistics and generates practical recommendations
+The analyzer consists of three main components:
+
+- **Server** (`src/server.py`) — SSL/TLS server listening on `localhost:8000`, serves a 20MB test file to simulate real-world downloads
+- **Client** (`src/client.py`) — Initiates encrypted downloads and measures precise throughput using high-resolution timing
+- **Analysis Engine** (`src/analysis.py`) — Computes statistics (mean, median, standard deviation), evaluates network quality, groups data by hour, and generates recommendations
+
+Data flows through the pipeline: download measurements → statistical analysis → identified patterns → actionable recommendations.
 
 ## Output
 
@@ -47,9 +86,9 @@ Each test creates a timestamped directory with:
 
 ## Requirements
 
-- Python 3.8+
-- `cryptography` (for SSL) - auto-installed
-- `matplotlib` (optional, for charts)
+- Python 3.8 or higher
+- matplotlib (for visualization charts)
+- cryptography (for SSL/TLS certificate handling)
 
 ## Features
 
