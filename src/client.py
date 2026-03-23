@@ -143,7 +143,7 @@ def run_scheduler(host: str, port: int, filename: str, interval: int, total: int
             print(f"[FAIL] {result['error']}")
 
         # Intermediate analysis and reporting every 6 downloads
-        if i % 6 == 0 or i == total:
+        if i == total:
             analysis.analyze_and_report(records, session_dir)
 
         # Sleep until next scheduled download
