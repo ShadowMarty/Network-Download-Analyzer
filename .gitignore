@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Project-specific (generated at runtime)
+results/
+data/testfile.bin
+data/server.crt
+data/server.key
+*.log
+
+# Optional 
+docs/
