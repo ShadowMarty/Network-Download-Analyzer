@@ -28,7 +28,7 @@ python3 setup.py
 **Windows (PowerShell):**
 ```powershell
 python -m venv venv
-.\venv\Scripts\Activate.ps1
+venv/Scripts/activate
 pip install -r requirements.txt
 python setup.py
 ```
@@ -36,7 +36,7 @@ python setup.py
 **Windows (Command Prompt):**
 ```cmd
 python -m venv venv
-venv\Scripts\activate.bat
+venv/Scripts/activate
 pip install -r requirements.txt
 python setup.py
 ```
