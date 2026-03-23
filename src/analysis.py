@@ -1,20 +1,25 @@
+# Network Download Analyzer - Statistical Analysis and Reporting
+# Computes throughput metrics, generates charts and reports, identifies patterns
 import json, os, statistics, datetime
 
+# Optional visualization (charts)
 try:
     import matplotlib
-    matplotlib.use("Agg")
+    matplotlib.use("Agg")  # Non-interactive backend for file output
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
 
+# Statistics computation
 def compute_stats(records: list[dict]) -> dict:
     """Compute statistics from download records."""
     successful = [r for r in records if r.get("success")]
     if not successful:
         return {}
     
+    # Extract throughput and duration data from successful downloads
     throughputs = [r["throughput_mbps"] for r in successful]
     durations = [r["duration_sec"] for r in successful]
     total_bytes = sum(r["bytes_received"] for r in successful)
@@ -39,6 +44,7 @@ def compute_stats(records: list[dict]) -> dict:
         "throughputs": throughputs,
     }
 
+# Console output
 def print_stats(stats: dict, records: list[dict] = None) -> None:
     """Print statistics to console with per-download breakdown."""
     if not stats:
@@ -53,6 +59,7 @@ def print_stats(stats: dict, records: list[dict] = None) -> None:
     print(f"Total bytes: {stats['total_bytes_rx']:,}")
     print()
     
+    # Display aggregated throughput metrics
     t = stats['throughput_mbps']
     print(f"Mean:    {t['mean']:.6f} MB/s")
     print(f"Median:  {t['median']:.6f} MB/s")
@@ -61,15 +68,16 @@ def print_stats(stats: dict, records: list[dict] = None) -> None:
     print(f"Max:     {t['max']:.6f} MB/s")
     print()
     
+    # Display duration metrics
     d = stats['duration_sec']
     print(f"Mean duration: {d['mean']:.4f}s")
     print(f"Min duration:  {d['min']:.4f}s")
     print(f"Max duration:  {d['max']:.4f}s")
     
-    # Per-download breakdown
+    # Show per-download breakdown for small test sets (<=12 downloads)
     if records:
         successful = [r for r in records if r.get("success")]
-        if len(successful) <= 12:  # Per-download mode for <= 12 tests
+        if len(successful) <= 12:
             print()
             print("Per-Download Breakdown:")
             print("-" * 50)
@@ -80,6 +88,7 @@ def print_stats(stats: dict, records: list[dict] = None) -> None:
     
     print("="*50 + "\n")
 
+# Visualization
 def save_chart(records: list[dict], stats: dict, session_dir: str = None) -> str:
     """Generate and save throughput chart."""
     if not HAS_MATPLOTLIB:
@@ -93,13 +102,15 @@ def save_chart(records: list[dict], stats: dict, session_dir: str = None) -> str
     output_path = os.path.join(session_dir, "throughput_chart.png") if session_dir else "throughput_chart.png"
     
     try:
+        # Extract timestamps and throughput values
         timestamps = [datetime.datetime.fromisoformat(r["timestamp"]) for r in successful]
         throughputs = [r["throughput_mbps"] for r in successful]
         
+        # Create two-subplot figure (time series + bar chart)
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 9))
         fig.suptitle("Network Download Analyzer", fontsize=14, fontweight="bold")
         
-        # Chart 1: Throughput over time
+        # Plot 1: Throughput over time with mean line
         ax1.plot(timestamps, throughputs, marker="o", linewidth=2, color="#2196F3", markersize=6)
         ax1.axhline(y=stats["throughput_mbps"]["mean"], color="orange", linestyle="--", 
                     linewidth=2, label=f'Mean: {stats["throughput_mbps"]["mean"]:.4f} MB/s')
@@ -111,7 +122,7 @@ def save_chart(records: list[dict], stats: dict, session_dir: str = None) -> str
         ax1.grid(True, alpha=0.3)
         ax1.set_title("Throughput Over Time", fontsize=11, fontweight="bold")
         
-        # Chart 2: Per-download performance
+        # Plot 2: Per-download bar chart (highlight fastest in red)
         downloads = list(range(1, len(throughputs) + 1))
         max_throughput = max(throughputs)
         colors = ["#F44336" if tp == max_throughput else "#4CAF50" for tp in throughputs]
@@ -131,6 +142,7 @@ def save_chart(records: list[dict], stats: dict, session_dir: str = None) -> str
         print(f"✗ Chart error: {e}")
         return None
 
+# Report generation
 def write_report(stats: dict, records: list[dict] = None, session_dir: str = None) -> str:
     """Write concise but practical analysis report with real-world recommendations."""
     if not stats:
@@ -140,7 +152,7 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
     
     mean_tp = stats['throughput_mbps']['mean']
     
-    # Quick network quality assessment
+    # Assess network quality based on throughput
     def quality_level(mbps):
         if mbps >= 100: return "EXCELLENT"
         elif mbps >= 50: return "VERY GOOD"
@@ -148,7 +160,7 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
         elif mbps >= 5: return "FAIR"
         else: return "POOR"
     
-    # Group by hour if available
+    # Group successful downloads by hour
     hourly_stats = {}
     if records:
         successful = [r for r in records if r.get("success")]
@@ -158,26 +170,25 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
                 hourly_stats[hour] = []
             hourly_stats[hour].append(record["throughput_mbps"])
     
-    # Only use hourly analysis if data spans multiple distinct hours AND makes sense
+    # Validate hourly data (only use if realistic and spans multiple hours)
     has_multi_hour_data = len(hourly_stats) > 1
     
     if has_multi_hour_data and len(hourly_stats) >= 2:
         hours_list = sorted(hourly_stats.keys())
-        # Check if hours are realistic - should be consecutive or close
-        # Handle midnight wrap: if hours are like [23, 0, 1], compute gap correctly
+        # Check hour gaps (handle midnight wrap: 23->0->1)
         gaps = []
         for i in range(len(hours_list)-1):
             gap = hours_list[i+1] - hours_list[i]
-            if gap < 0:  # Midnight wrap
+            if gap < 0:
                 gap = gap + 24
             gaps.append(gap)
         
         max_gap = max(gaps) if gaps else 0
-        # Only show hourly analysis if all consecutive hours are 1-2 apart
-        # This avoids spurious hour data from clock issues
+        # Only show hourly analysis if gaps are <= 2 hours (consecutive)
         if max_gap > 2:
             has_multi_hour_data = False
     
+    # Build report sections
     lines = [
         "=" * 70,
         "NETWORK DOWNLOAD ANALYZER - REPORT",
@@ -201,7 +212,7 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
         "",
     ]
     
-    # Hourly breakdown (only if data spans multiple hours)
+    # Peak/off-peak analysis (only if multiple hours detected)
     if hourly_stats and has_multi_hour_data:
         best_hour = max(hourly_stats.keys(), key=lambda h: statistics.mean(hourly_stats[h]))
         worst_hour = min(hourly_stats.keys(), key=lambda h: statistics.mean(hourly_stats[h]))
@@ -215,7 +226,7 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
             "",
         ])
     elif hourly_stats:
-        # Single hour data - note that more testing needed for patterns
+        # Single hour data - suggest longer tests
         current_hour = list(hourly_stats.keys())[0]
         lines.extend([
             "HOURLY ANALYSIS",
@@ -225,7 +236,7 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
             "",
         ])
     
-    # Practical recommendations
+    # Practical recommendations based on throughput level
     lines.extend([
         "PRACTICAL RECOMMENDATIONS",
         "-" * 70,
@@ -254,6 +265,7 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
             "  • Avoid concurrent downloads during peak usage",
         ])
     
+    # Download time estimates based on current speed
     lines.extend([
         "",
         "DOWNLOAD TIME ESTIMATES (at current speed)",
@@ -266,6 +278,7 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
         "-" * 70,
     ])
     
+    # Generate action items (numbered appropriately)
     if hourly_stats and has_multi_hour_data:
         best_hour = max(hourly_stats.keys(), key=lambda h: statistics.mean(hourly_stats[h]))
         lines.append(f"  1. Schedule large downloads at {best_hour:02d}:00 (best performance hour)")
@@ -292,6 +305,7 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
     print(f"✓ Report saved: network_report.txt")
     return output_path
 
+# Pipeline execution - coordinates all analysis and reporting
 def analyze_and_report(records: list[dict], session_dir: str = None) -> dict:
     """Run complete analysis pipeline. Returns stats and file paths."""
     stats = compute_stats(records)

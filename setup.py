@@ -1,21 +1,19 @@
-#!/usr/bin/env python3
-"""
-Setup + Menu: Initialize project and run tests with user control
-"""
-
+# Project Setup and Menu - Initialize data, certificates, and run tests
+# Creates test file, SSL certificates, server, and client with user menu
 import os
 import sys
 import subprocess
 import time
 
+# Project initialization
 def init_project():
     """Initialize project: directories, test file, certificate."""
     
-    # 1. Create directories
+    # Create required directories
     os.makedirs("data", exist_ok=True)
     os.makedirs("results", exist_ok=True)
     
-    # 2. Create 20 MB test file
+    # Generate 20 MB test file if not exists
     test_file = "data/testfile.bin"
     if not os.path.exists(test_file):
         print("\n[Setup] Creating 20 MB test file...")
@@ -26,7 +24,7 @@ def init_project():
     else:
         print("[Setup] ✓ Test file exists")
     
-    # 3. Generate SSL certificate
+    # Generate self-signed SSL certificate if not exists
     cert_file = "data/server.crt"
     if not os.path.exists(cert_file):
         print("[Setup] Generating SSL certificate & key...")
@@ -39,10 +37,12 @@ def init_project():
             from cryptography.hazmat.primitives import serialization
             import datetime
             
+            # Generate 2048-bit RSA private key
             private_key = rsa.generate_private_key(
                 public_exponent=65537, key_size=2048, backend=default_backend()
             )
             
+            # Define certificate subject attributes
             subject = issuer = x509.Name([
                 x509.NameAttribute(NameOID.COUNTRY_NAME, "IN"),
                 x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Karnataka"),
@@ -50,6 +50,7 @@ def init_project():
                 x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
             ])
             
+            # Build and sign certificate (valid for 365 days)
             cert = x509.CertificateBuilder().subject_name(
                 subject
             ).issuer_name(
@@ -69,6 +70,7 @@ def init_project():
                 critical=False,
             ).sign(private_key, hashes.SHA256(), default_backend())
             
+            # Write certificate and private key to files
             with open(cert_file, "wb") as f:
                 f.write(cert.public_bytes(serialization.Encoding.PEM))
             with open("data/server.key", "wb") as f:
