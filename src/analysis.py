@@ -158,6 +158,26 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
                 hourly_stats[hour] = []
             hourly_stats[hour].append(record["throughput_mbps"])
     
+    # Only use hourly analysis if data spans multiple distinct hours AND makes sense
+    has_multi_hour_data = len(hourly_stats) > 1
+    
+    if has_multi_hour_data and len(hourly_stats) >= 2:
+        hours_list = sorted(hourly_stats.keys())
+        # Check if hours are realistic - should be consecutive or close
+        # Handle midnight wrap: if hours are like [23, 0, 1], compute gap correctly
+        gaps = []
+        for i in range(len(hours_list)-1):
+            gap = hours_list[i+1] - hours_list[i]
+            if gap < 0:  # Midnight wrap
+                gap = gap + 24
+            gaps.append(gap)
+        
+        max_gap = max(gaps) if gaps else 0
+        # Only show hourly analysis if all consecutive hours are 1-2 apart
+        # This avoids spurious hour data from clock issues
+        if max_gap > 2:
+            has_multi_hour_data = False
+    
     lines = [
         "=" * 70,
         "NETWORK DOWNLOAD ANALYZER - REPORT",
@@ -181,8 +201,8 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
         "",
     ]
     
-    # Hourly breakdown (concise version)
-    if hourly_stats:
+    # Hourly breakdown (only if data spans multiple hours)
+    if hourly_stats and has_multi_hour_data:
         best_hour = max(hourly_stats.keys(), key=lambda h: statistics.mean(hourly_stats[h]))
         worst_hour = min(hourly_stats.keys(), key=lambda h: statistics.mean(hourly_stats[h]))
         
@@ -192,6 +212,16 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
             f"  Best hour:   {best_hour:02d}:00 ({statistics.mean(hourly_stats[best_hour]):.2f} MB/s)",
             f"  Worst hour:  {worst_hour:02d}:00 ({statistics.mean(hourly_stats[worst_hour]):.2f} MB/s)",
             f"  Peak variance: {(statistics.mean(hourly_stats[best_hour])/statistics.mean(hourly_stats[worst_hour]) - 1)*100:.0f}% difference",
+            "",
+        ])
+    elif hourly_stats:
+        # Single hour data - note that more testing needed for patterns
+        current_hour = list(hourly_stats.keys())[0]
+        lines.extend([
+            "HOURLY ANALYSIS",
+            "-" * 70,
+            f"  Current hour ({current_hour:02d}:00): {statistics.mean(hourly_stats[current_hour]):.2f} MB/s average",
+            f"  Note: Run longer tests (12+ hours) to identify peak/off-peak patterns",
             "",
         ])
     
@@ -236,14 +266,18 @@ def write_report(stats: dict, records: list[dict] = None, session_dir: str = Non
         "-" * 70,
     ])
     
-    if hourly_stats:
-        lines.append(f"  1. Schedule large downloads at {best_hour:02d}:00 (peak hour)")
+    if hourly_stats and has_multi_hour_data:
+        best_hour = max(hourly_stats.keys(), key=lambda h: statistics.mean(hourly_stats[h]))
+        lines.append(f"  1. Schedule large downloads at {best_hour:02d}:00 (best performance hour)")
+    
+    action_num = 2 if (hourly_stats and has_multi_hour_data) else 1
     
     if stats['failed'] > 0:
-        lines.append(f"  2. Investigate {stats['failed']} failed download(s) - may indicate instability")
+        lines.append(f"  {action_num}. Investigate {stats['failed']} failed download(s) - may indicate instability")
+        action_num += 1
     
     if stats['throughput_mbps']['stdev'] > mean_tp * 0.3:
-        lines.append("  3. High variability detected - use conservative time estimates")
+        lines.append(f"  {action_num}. High variability detected - use conservative time estimates")
     
     lines.extend([
         "",
