@@ -23,10 +23,16 @@ def get_session_dir() -> str:
 
 # SSL/TLS setup
 def build_ssl_context() -> ssl.SSLContext:
-    """Create SSL context (disable verification for self-signed certs)."""
+    """Create SSL context with proper certificate verification for lab environment."""
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    # For single-machine lab testing: disable hostname check (not critical for internal testing)
+    # but keep certificate verification enabled (REQUIRED for security)
     ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
+    ctx.verify_mode = ssl.CERT_REQUIRED
+    # Load the self-signed certificate from the data directory
+    # This ensures the certificate is cryptographically verified
+    cert_path = os.path.join(PROJECT_ROOT, "data", "server.crt")
+    ctx.load_verify_locations(cafile=cert_path)
     return ctx
 
 # Core download logic
