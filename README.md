@@ -78,6 +78,9 @@ The analyzer consists of three main components:
 - **Client** (`src/client.py`) — Performs encrypted downloads and measures throughput with nanosecond precision
 - **Analysis Engine** (`src/analysis.py`) — Computes statistical metrics, identifies performance patterns, and generates reports
 
+- <img width="1066" height="573" alt="image" src="https://github.com/user-attachments/assets/2d10b339-ec95-41a2-ae6b-85cb39d53008" />
+
+
 ## Output
 
 Each test creates a timestamped directory with:
